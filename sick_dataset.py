@@ -3,11 +3,11 @@ import torch
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
-from create_word_to_ix import get_word_to_ix, get_max_len
+from preprocess_data import get_word_to_ix, get_data
 
 import numpy as np
 
-def packed_collate_fn(data):
+def packed_collate_fn(data, is_sort=False):
 
     def merge(sequences):
         lengths = [len(seq) for seq in sequences]
@@ -20,70 +20,34 @@ def packed_collate_fn(data):
     # sort a list by sequence length (descending order) to use pack_padded_sequence
     enumerated_data = [[idx, x[0], x[1], x[2]] for idx, x in enumerate(data)]
     
-    #sort for sentence1 and create batch
-    enumerated_data.sort(key=lambda sent: len(sent[1]), reverse=True)
-    sent1_order, sent1_seqs, _, _ = zip(*enumerated_data)
-    sent1_seqs, sent1_lengths = merge(sent1_seqs)
+    sent_order = [None]*2; sent_lengths = [None]*2 
+    sent_seqs = [None]*2; merged_seq = [None]*2
 
-    #sort for sentence2 and create batch
-    enumerated_data.sort(key=lambda sent: len(sent[2]), reverse=True)
-    sent2_order, _, sent2_seqs, _ = zip(*enumerated_data)
-    sent2_seqs, sent2_lengths = merge(sent2_seqs)
+    for i in range(2):
+        if is_sort:
+            #sort for sentence 1 and 2 and create batch
+            enumerated_data.sort(key=lambda sent: len(sent[i+1]), reverse=True)
+        sent_order[i], sent_seqs[0], sent_seqs[1], _ = zip(*enumerated_data)
+        merged_seq[i], sent_lengths[i] = merge(sent_seqs[i])
 
-    score = [x[2].numpy() for x in data]
+    score = [x[2][0] for x in data]
     score = torch.Tensor(score)
 
-    return sent1_seqs, sent1_lengths, sent1_order, sent2_seqs, sent2_lengths, sent2_order, score
+    return {'sent':merged_seq, 'sent_length':sent_lengths, 'order':sent_order, 'scores':score}
+
+def packed_collate_sort(data, is_sort=True):
+    return packed_collate_fn(data, is_sort)
+
 
 class SICKDataset(Dataset):
     def __init__(self, dset_type, transform=None):
         self.data = []
         self.transform = transform
         self.word_to_idx = get_word_to_ix()
-        self.max_len = get_max_len()
         self.read_file(dset_type)
 
     def read_file(self, dset_type):
-        max_list = []
-        # dataset = {'train':[], 'test':[], 'dev':[]}
-        data = []
-        print ('preprossing ' + 'SICK' + '...')
-        fpr = open('data/SICK/'+'SICK.txt', 'r')
-        fpr.readline()
-        count = 0
-        for line in fpr:
-            if count > 3:
-                break
-            sentences = line.strip().split('\t')
-            if dset_type != sentences[11]:
-                continue
-            tokens = [[token for token in sentences[x].split(' ') if token != '(' and token != ')'] for x in [1, 2]]
-            data.append(([tokens[0], tokens[1]], float(sentences[4])))
-            count += 1
-        fpr.close()
-        print(data)
-        # print ('SICK preprossing ' + dset_type + ' finished!')
-        # print("Vocab size : ", len(self.word_to_idx))
-        self.data = self.convert_data_to_word_to_idx(data)
-        
-
-    def convert_data_to_word_to_idx(self, data):
-        data_to_word_to_idx = []
-
-        for sentences, score in data:
-            # sentences_pad = [np.zeros(self.max_len) for i in range(2)]
-            for i in range(2):
-                sentences[i] = [self.word_to_idx[w] for w in sentences[i]]
-                # sentences_pad[i][:len(sentences[i])] = sentences[i]
-
-            data_to_word_to_idx.append((np.array(sentences[0], dtype=np.int64),
-                np.array(sentences[1], dtype=np.int64),
-                # np.array([len(sentences[0])], dtype=np.int64),
-                # np.array([len(sentences[1])], dtype=np.int64),
-                np.array([score], dtype=np.float64)))
-
-        # print('data_to_word_to_idx', data_to_word_to_idx[0])
-        return data_to_word_to_idx
+        self.data = get_data(dset_type)
 
     def len_of_sentence(self, input_tuple):
         sentence, _ = input_tuple
@@ -129,12 +93,12 @@ if __name__ == "__main__":
     #     sample = dataset[i]
     #     print(sample)
 
-    dataloader = DataLoader(dataset, batch_size=4, num_workers=4, collate_fn=packed_collate_fn)
+    dataloader = DataLoader(dataset, batch_size=4, num_workers=4, collate_fn=packed_collate_sort)
 
     # print("dataloader size")
     # print(len(dataloader))
 
     for i_batch, sample_batched in enumerate(dataloader):
         print(i_batch, sample_batched,)
-        if (i_batch == 5):
+        if (i_batch == 0):
             break
