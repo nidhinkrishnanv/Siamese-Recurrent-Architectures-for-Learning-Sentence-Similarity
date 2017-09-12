@@ -15,20 +15,25 @@ def packed_collate_fn(data, is_sort=False):
         for i, seq in enumerate(sequences):
             end = lengths[i]
             padded_seqs[i, :end] = seq[:end]
-        return padded_seqs, lengths
+        return padded_seqs, np.array(lengths)
 
     # sort a list by sequence length (descending order) to use pack_padded_sequence
     enumerated_data = [[idx, x[0], x[1], x[2]] for idx, x in enumerate(data)]
     
-    sent_order = [None]*2; sent_lengths = [None]*2 
+    sent_order_were = [None]*2; sent_lengths = [None]*2 
     sent_seqs = [None]*2; merged_seq = [None]*2
+    sent_order = [None]*2
 
     for i in range(2):
         if is_sort:
-            #sort for sentence 1 and 2 and create batch
+            # sort for sentence 1 and 2 and create batch
             enumerated_data.sort(key=lambda sent: len(sent[i+1]), reverse=True)
-        sent_order[i], sent_seqs[0], sent_seqs[1], _ = zip(*enumerated_data)
+        sent_order_were[i], sent_seqs[0], sent_seqs[1], _ = zip(*enumerated_data)
         merged_seq[i], sent_lengths[i] = merge(sent_seqs[i])
+        
+        sent_order[i] = [None]*len(sent_order_were[i])
+        for ord in range(len(sent_order_were[i])):
+            sent_order[i][sent_order_were[i][ord]] = ord
 
     score = [x[2][0] for x in data]
     score = torch.Tensor(score)

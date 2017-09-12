@@ -17,34 +17,6 @@ stopWords = set(stopwords.words('english'))
 datapath = '../data/SICK/'
 
 
-# def vocab():
-#     labelDict = {'neutral':0, 'entailment':1, 'contradiction':2, '-':0}
-#     vocab = set()
-#     print ('preprossing ' + 'SICK' + '...')
-#     fpr = open(datapath+'SICK.txt', 'r')
-#     count = 0
-#     fpr.readline()
-#     for line in fpr:
-#         # if count > 1:
-#         #     break
-#         sentences = line.strip().split('\t')
-#         tokens = [token for token in sentences[1].split(' ') if token != '(' and token != ')']
-#         tokens += [token for token in sentences[2].split(' ') if token != '(' and token != ')' ]
-#         vocab.update(tokens)
-#         count += 1       
-#     fpr.close()
-#     word_to_idx = {word:i for i, word in enumerate(vocab, 1)}
-#     word_to_idx["[<pad>]"] = 0
-#     print("Vocab size : ", len(word_to_idx))
-#     print("max_len " ,max_len)
-    
-#     with open('data/word_to_idx.json', 'w') as f:
-#         json.dump(word_to_idx, f)
-#     with open('data/max_len.pkl', 'wb') as f:
-#         pickle.dump(max_len, f)
-
-    # print ('SICK vocab preprossing finished!')
-
 def save_data(is_train_gensim=False):
     labelDict = {'neutral':0, 'entailment':1, 'contradiction':2, '-':0}
     dset_types = ['TRAIN', 'TRIAL', 'TEST']
@@ -57,7 +29,7 @@ def save_data(is_train_gensim=False):
     fpr.readline()
     count = 0
     for line in fpr:
-        if count >= 1000:
+        if count >= 4:
             break
         sentences = line.strip().split('\t')
         tokens = [[token for token in sentences[x].split(' ') if token != '(' and token != ')'] for x in [1, 2]]
@@ -94,7 +66,7 @@ def save_data(is_train_gensim=False):
             pickle.dump(data[dset_type], f)
     
     if is_train_gensim:
-        model = gensim.models.Word2Vec(gensim_train_data, size=300, window=5, min_count=1, workers=4)
+        model = gensim.models.Word2Vec(gensim_train_data, size=300, window=1, min_count=1, workers=4)
         model.save('model/word2vec_snli.model')
 
     print("Vocab size : ", len(word_to_idx))
